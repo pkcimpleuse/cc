@@ -1,0 +1,52 @@
+using System;
+using System.Numerics;
+using Nethereum.Web3;
+using Nethereum.Web3.Accounts;
+using Nethereum.Hex.HexConvertors.Extensions;
+using Nethereum.Contracts;
+using Nethereum.Contracts.Extensions;
+using Nethereum.RPC.Eth.DTOs;
+using Nethereum.ABI.Encoders;
+using Nethereum.ABI.FunctionEncoding.Attributes;
+
+public class UniswapTransaction
+{
+    private const string InfuraUrl = "https://mainnet.infura.io/v3/YOUR_INFURA_PROJECT_ID";
+    private const string PrivateKey = "YOUR_PRIVATE_KEY";
+    private const string WalletAddress = "YOUR_WALLET_ADDRESS";
+    private const string UniswapContractAddress = "UNISWAP_CONTRACT_ADDRESS";
+    
+    public async Task SendTransaction()
+    {
+        var web3 = new Web3(new Account(PrivateKey), InfuraUrl);
+
+        // Создание экземпляра контракта Uniswap
+        var uniswapContract = web3.Eth.GetContract(UNISWAP_CONTRACT_ABI, uniswapContractAddress);
+
+        // Получение текущего номера блока
+        var blockNumber = await web3.Eth.Blocks.GetBlockNumber.SendRequestAsync();
+
+        // Создание транзакции для обмена токенов на Uniswap
+        var swapFunction = uniswapContract.GetFunction("swapTokensForExactTokens");
+        var swapInput = swapFunction.CreateCallInput(desiredAmountOut, amountInMax, path, to, deadline);
+
+        var transactionCount = await web3.Eth.Transactions.GetTransactionCount.SendRequestAsync(WalletAddress);
+
+        var transaction = new TransactionInput
+        {
+            From = WalletAddress,
+            To = uniswapContractAddress,
+            Value = new HexBigInteger(0),
+            Nonce = new HexBigInteger(transactionCount),
+            GasPrice = new HexBigInteger(Nethereum.Signer.Transaction.DEFAULT_GAS_PRICE),
+            Gas = new HexBigInteger(300000), // Лимит газа для транзакции
+            Data = swapInput.Data
+        };
+
+        // Подписание и отправка транзакции
+        var signedTransaction = web3.TransactionManager.SignTransaction(transaction);
+        var transactionHash = await web3.Eth.Transactions.SendRawTransaction.SendRequestAsync(signedTransaction);
+
+        Console.WriteLine($"Transaction sent: {transactionHash}");
+    }
+}
